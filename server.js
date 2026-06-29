@@ -124,20 +124,24 @@ function mapSamlProfile(profile) {
     rawAttributes: profile.attributes || {}
   };
 }
-
 const samlStrategy = new SamlStrategy(
   {
     entryPoint: BLINK_LOGIN_URL,
     issuer: `${APP_BASE_URL}/saml/metadata`,
     callbackUrl: `${APP_BASE_URL}/sso/acs`,
 
-    // Correct for @node-saml/passport-saml
     idpCert: blinkCertificate,
 
     identifierFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
     acceptedClockSkewMs: 5000,
     disableRequestedAuthnContext: true,
-    wantAssertionsSigned: true,
+
+    // Important for Blink Hub SSO / IdP-initiated SSO
+    validateInResponseTo: 'never',
+
+    // Start flexible for testing.
+    // After it works, we can tighten security based on Blink’s signing method.
+    wantAssertionsSigned: false,
     wantAuthnResponseSigned: false
   },
   (profile, done) => {
@@ -214,16 +218,43 @@ app.get('/login', (req, res, next) => {
   })(req, res, next);
 });
 
-app.post(
-  '/sso/acs',
-  passport.authenticate('saml', {
-    failureRedirect: '/login-failed',
-    failureFlash: false
-  }),
-  (req, res) => {
-    res.redirect('/');
-  }
-);
+app.post('/sso/acs', (req, res, next) => {
+  passport.authenticate('saml', (error, user, info) => {
+    if (error) {
+      console.error('SAML ACS ERROR:', error);
+      console.error('SAML ACS INFO:', info);
+
+      return res.status(500).send(`
+        <h2>SAML ACS Error</h2>
+        <p>The app received the SAML response from Blink but could not validate it.</p>
+        <pre>${String(error.stack || error.message || error)}</pre>
+      `);
+    }
+
+    if (!user) {
+      console.error('SAML ACS NO USER:', info);
+
+      return res.status(401).send(`
+        <h2>SAML Login Failed</h2>
+        <p>No user profile was received from Blink.</p>
+        <pre>${JSON.stringify(info || {}, null, 2)}</pre>
+      `);
+    }
+
+    req.logIn(user, (loginError) => {
+      if (loginError) {
+        console.error('SAML SESSION LOGIN ERROR:', loginError);
+
+        return res.status(500).send(`
+          <h2>SAML Session Error</h2>
+          <pre>${String(loginError.stack || loginError.message || loginError)}</pre>
+        `);
+      }
+
+      return res.redirect('/');
+    });
+  })(req, res, next);
+});
 
 app.get('/login-failed', (req, res) => {
   res.status(401).sendFile(path.join(__dirname, 'public', 'login-failed.html'));
