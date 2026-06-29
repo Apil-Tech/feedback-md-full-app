@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Feedback - MD</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="page-shell">
+    <section class="feedback-card">
+      <div class="brand-row">
+        <div class="brand-mark">MD</div>
+        <div>
+          <p class="eyebrow">Multi Dynamic</p>
+          <h1>Feedback - MD</h1>
+        </div>
+      </div>
+
+      <p class="intro">
+        Please share your feedback below. Your name, office, and email are captured automatically from Blink SSO.
+      </p>
+
+      <div id="statusMessage" class="status hidden"></div>
+
+      <form id="feedbackForm">
+        <div class="field-grid">
+          <div class="field">
+            <label for="staffName">Name</label>
+            <input id="staffName" name="staffName" type="text" readonly value="Loading from Blink SSO...">
+          </div>
+
+          <div class="field">
+            <label for="staffOffice">Office</label>
+            <input id="staffOffice" name="staffOffice" type="text" readonly value="Loading from Blink SSO...">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="staffEmail">Email</label>
+          <input id="staffEmail" name="staffEmail" type="email" readonly value="Loading from Blink SSO...">
+        </div>
+
+        <div class="field">
+          <label for="feedback">Feedback <span class="required">*</span></label>
+          <textarea
+            id="feedback"
+            name="feedback"
+            required
+            maxlength="3000"
+            placeholder="Please write your feedback here..."
+          ></textarea>
+          <div class="helper-row">
+            <span>Required</span>
+            <span><span id="charCount">0</span>/3000</span>
+          </div>
+        </div>
+
+        <button id="submitButton" type="submit">
+          <span id="buttonText">Submit Feedback</span>
+          <span id="buttonLoader" class="loader hidden"></span>
+        </button>
+      </form>
+
+      <p class="footer-note">
+        This form is for internal staff feedback only.
+      </p>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

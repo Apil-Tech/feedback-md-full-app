@@ -1,0 +1,19 @@
+Project: Feedback - MD
+
+Frontend:
+- Clean responsive staff feedback form.
+- Shows Name, Office, Email as read-only fields from Blink SSO.
+- Staff enters Feedback only.
+- Shows success/error/warning messages.
+- Works on desktop and mobile.
+
+Backend:
+- Node.js Express app.
+- SAML SSO with Blink.
+- API route: /api/me
+- API route: /api/feedback
+- Sends email to admin@multidynamic.com.au
+- Saves backup submissions to data/feedback-submissions.jsonl
+
+Recommended domain:
+https://feedback.multidynamic.com.au

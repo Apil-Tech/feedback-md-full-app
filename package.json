@@ -1,0 +1,19 @@
+{
+  "name": "feedback-md-full-app",
+  "version": "1.0.0",
+  "description": "Feedback - MD frontend and backend app with Blink SAML SSO",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@node-saml/passport-saml": "^5.0.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "helmet": "^8.0.0",
+    "nodemailer": "^6.9.16",
+    "passport": "^0.7.0"
+  }
+}
