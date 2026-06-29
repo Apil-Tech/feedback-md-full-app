@@ -131,8 +131,8 @@ const samlStrategy = new SamlStrategy(
     issuer: `${APP_BASE_URL}/saml/metadata`,
     callbackUrl: `${APP_BASE_URL}/sso/acs`,
 
-    // Important fixed line:
-    cert: blinkCertificate,
+    // Correct for @node-saml/passport-saml
+    idpCert: blinkCertificate,
 
     identifierFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
     acceptedClockSkewMs: 5000,
