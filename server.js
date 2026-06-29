@@ -163,7 +163,11 @@ function requireLogin(req, res, next) {
   return res.redirect('/login');
 }
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(
+  express.static(path.join(__dirname, 'public'), {
+    index: false
+  })
+);
 
 app.get('/health', (req, res) => {
   res.json({
@@ -344,4 +348,8 @@ app.listen(PORT, () => {
   console.log(`App base URL: ${APP_BASE_URL}`);
   console.log(`SP Metadata URL: ${APP_BASE_URL}/saml/metadata`);
   console.log(`ACS URL: ${APP_BASE_URL}/sso/acs`);
+});
+
+app.get('*', requireLogin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
