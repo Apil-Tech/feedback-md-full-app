@@ -11,12 +11,15 @@ const nodemailer = require('nodemailer');
 
 const app = express();
 
-const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://feedback.multidynamic.com.au').replace(/\/$/, '');
+const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://feedback-md-full-app.onrender.com').replace(/\/$/, '');
 const PORT = Number(process.env.PORT || 3000);
 const SESSION_SECRET = process.env.SESSION_SECRET || 'replace-this-session-secret';
 
 const BLINK_LOGIN_URL = process.env.BLINK_LOGIN_URL;
-const BLINK_ENTITY_ID = process.env.BLINK_ENTITY_ID || 'https://api.joinblink.com/saml/o-0193f1e9-5ec6-7b30-8497-f896dfbc85fb';
+const BLINK_ENTITY_ID =
+  process.env.BLINK_ENTITY_ID ||
+  'https://api.joinblink.com/saml/o-0193f1e9-5ec6-7b30-8497-f896dfbc85fb';
+
 const BLINK_CERT_PATH = process.env.BLINK_CERT_PATH || './config/blink-idp-cert.pem';
 
 const certAbsolutePath = path.resolve(__dirname, BLINK_CERT_PATH);
@@ -34,24 +37,28 @@ if (!blinkCertificate) {
 
 app.set('trust proxy', 1);
 
-app.use(helmet({
-  contentSecurityPolicy: false,
-  frameguard: false
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    frameguard: false
+  })
+);
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-app.use(session({
-  secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: APP_BASE_URL.startsWith('https://')
-  }
-}));
+app.use(
+  session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: APP_BASE_URL.startsWith('https://')
+    }
+  })
+);
 
 app.use(passport.initialize());
 app.use(passport.session());
@@ -77,13 +84,16 @@ function getAttribute(profile, possibleNames) {
 }
 
 function mapSamlProfile(profile) {
-  const email = getAttribute(profile, [
-    'email',
-    'Email',
-    'mail',
-    'user.email',
-    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'
-  ]) || profile.nameID || '';
+  const email =
+    getAttribute(profile, [
+      'email',
+      'Email',
+      'mail',
+      'user.email',
+      'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'
+    ]) ||
+    profile.nameID ||
+    '';
 
   const name = getAttribute(profile, [
     'name',
@@ -120,7 +130,10 @@ const samlStrategy = new SamlStrategy(
     entryPoint: BLINK_LOGIN_URL,
     issuer: `${APP_BASE_URL}/saml/metadata`,
     callbackUrl: `${APP_BASE_URL}/sso/acs`,
-    idpCert: blinkCertificate,
+
+    // Important fixed line:
+    cert: blinkCertificate,
+
     identifierFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
     acceptedClockSkewMs: 5000,
     disableRequestedAuthnContext: true,
@@ -160,6 +173,18 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.get('/debug-config', (req, res) => {
+  res.json({
+    appBaseUrl: APP_BASE_URL,
+    blinkLoginUrlSet: Boolean(BLINK_LOGIN_URL),
+    blinkEntityId: BLINK_ENTITY_ID,
+    blinkCertificateLoaded: Boolean(blinkCertificate),
+    blinkCertPath: BLINK_CERT_PATH,
+    metadataUrl: `${APP_BASE_URL}/saml/metadata`,
+    acsUrl: `${APP_BASE_URL}/sso/acs`
+  });
+});
+
 app.get('/saml/metadata', (req, res) => {
   try {
     const metadata = samlStrategy.generateServiceProviderMetadata(null, null);
@@ -169,11 +194,24 @@ app.get('/saml/metadata', (req, res) => {
   }
 });
 
-app.get('/login', passport.authenticate('saml', {
-  failureRedirect: '/login-failed'
-}));
+app.get('/login', (req, res, next) => {
+  if (!BLINK_LOGIN_URL) {
+    return res.status(500).send('Missing BLINK_LOGIN_URL in Render environment variables.');
+  }
 
-app.post('/sso/acs',
+  if (!blinkCertificate) {
+    return res
+      .status(500)
+      .send('Missing Blink certificate. Check BLINK_CERT_PATH and config/blink-idp-cert.pem.');
+  }
+
+  return passport.authenticate('saml', {
+    failureRedirect: '/login-failed'
+  })(req, res, next);
+});
+
+app.post(
+  '/sso/acs',
   passport.authenticate('saml', {
     failureRedirect: '/login-failed',
     failureFlash: false
@@ -228,6 +266,7 @@ app.post('/api/feedback', requireLogin, async (req, res) => {
 
   const dataDir = path.resolve(__dirname, 'data');
   fs.mkdirSync(dataDir, { recursive: true });
+
   fs.appendFileSync(
     path.join(dataDir, 'feedback-submissions.jsonl'),
     JSON.stringify(submission) + '\n',
@@ -235,6 +274,7 @@ app.post('/api/feedback', requireLogin, async (req, res) => {
   );
 
   const subject = 'New Staff Feedback Submitted - Feedback MD';
+
   const body = [
     'A new staff feedback response has been submitted.',
     '',
@@ -253,12 +293,13 @@ app.post('/api/feedback', requireLogin, async (req, res) => {
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT || 587),
       secure: String(process.env.SMTP_SECURE).toLowerCase() === 'true',
-      auth: process.env.SMTP_USER && process.env.SMTP_PASS
-        ? {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
-          }
-        : undefined
+      auth:
+        process.env.SMTP_USER && process.env.SMTP_PASS
+          ? {
+              user: process.env.SMTP_USER,
+              pass: process.env.SMTP_PASS
+            }
+          : undefined
     });
 
     await transporter.sendMail({
@@ -275,9 +316,11 @@ app.post('/api/feedback', requireLogin, async (req, res) => {
     });
   } catch (error) {
     console.error('Email sending failed:', error);
+
     return res.status(500).json({
       ok: false,
-      message: 'Feedback was saved, but email sending failed. Please ask the developer to check SMTP settings.'
+      message:
+        'Feedback was saved, but email sending failed. Please ask the developer to check SMTP settings.'
     });
   }
 });
@@ -285,6 +328,7 @@ app.post('/api/feedback', requireLogin, async (req, res) => {
 app.get('/logout', (req, res, next) => {
   req.logout((error) => {
     if (error) return next(error);
+
     req.session.destroy(() => {
       res.redirect('/login');
     });
