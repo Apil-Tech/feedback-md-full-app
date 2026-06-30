@@ -12,11 +12,51 @@ const staffEmail = document.getElementById('staffEmail');
 
 const urlParams = new URLSearchParams(window.location.search);
 
+function getParam(...keys) {
+  for (const key of keys) {
+    const value = urlParams.get(key);
+
+    if (value && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return '';
+}
+
+function isBlinkPlaceholder(value) {
+  return value && value.startsWith('[') && value.endsWith(']');
+}
+
+function cleanBlinkValue(value) {
+  if (!value) return '';
+  const cleaned = decodeURIComponent(value).trim();
+
+  // If Blink did not replace the placeholder, ignore it.
+  if (isBlinkPlaceholder(cleaned)) return '';
+
+  return cleaned;
+}
+
 const blinkUser = {
-  name: urlParams.get('name') || '',
-  office: urlParams.get('office') || '',
-  email: urlParams.get('email') || '',
-  employeeId: urlParams.get('employee_id') || ''
+  name: cleanBlinkValue(
+    getParam('name', 'display_name', 'full_name', 'employee_surname')
+  ),
+  office: cleanBlinkValue(
+    getParam('office', 'location_name', 'location', 'department_name', 'department')
+  ),
+  email: cleanBlinkValue(
+    getParam('email', 'user_email')
+  ),
+  employeeId: cleanBlinkValue(
+    getParam('employee_id', 'employeeId', 'employee_number')
+  ),
+  department: cleanBlinkValue(
+    getParam('department', 'department_name')
+  ),
+  jobTitle: cleanBlinkValue(
+    getParam('job_title', 'jobTitle')
+  )
 };
 
 function showStatus(type, message) {
@@ -77,13 +117,15 @@ form.addEventListener('submit', async (event) => {
       credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        Accept: 'application/json'
       },
       body: JSON.stringify({
         name: blinkUser.name,
         office: blinkUser.office,
         email: blinkUser.email,
         employeeId: blinkUser.employeeId,
+        department: blinkUser.department,
+        jobTitle: blinkUser.jobTitle,
         feedback
       })
     });
@@ -97,7 +139,10 @@ form.addEventListener('submit', async (event) => {
 
     feedbackInput.value = '';
     charCount.textContent = '0';
-    showStatus('success', data.message || 'Thank you. Your feedback has been submitted successfully.');
+    showStatus(
+      'success',
+      data.message || 'Thank you. Your feedback has been submitted successfully.'
+    );
   } catch (error) {
     console.error(error);
     showStatus('error', 'Could not submit feedback. Please check your connection and try again.');
