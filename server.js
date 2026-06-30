@@ -14,6 +14,7 @@ const RedisStore =
   connectRedis.RedisStore || connectRedis.default || connectRedis;
 
 const app = express();
+
 function logJson(title, data) {
   console.log(`\n===== ${title} =====`);
   try {
@@ -24,6 +25,7 @@ function logJson(title, data) {
   }
   console.log(`===== END ${title} =====\n`);
 }
+
 const APP_BASE_URL = (
   process.env.APP_BASE_URL || "https://feedback-md-full-app.onrender.com"
 ).replace(/\/$/, "");
