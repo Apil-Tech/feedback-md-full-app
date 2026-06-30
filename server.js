@@ -8,6 +8,9 @@ const helmet = require('helmet');
 const passport = require('passport');
 const { Strategy: SamlStrategy } = require('@node-saml/passport-saml');
 const nodemailer = require('nodemailer');
+const { createClient } = require('redis');
+const connectRedis = require('connect-redis');
+const RedisStore = connectRedis.RedisStore || connectRedis.default || connectRedis;
 
 const app = express();
 
@@ -47,15 +50,41 @@ app.use(
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+let sessionStore;
+
+if (process.env.REDIS_URL) {
+  const redisClient = createClient({
+    url: process.env.REDIS_URL
+  });
+
+  redisClient.on('error', (error) => {
+    console.error('Redis session store error:', error);
+  });
+
+  redisClient.connect().catch((error) => {
+    console.error('Redis connection failed:', error);
+  });
+
+  sessionStore = new RedisStore({
+    client: redisClient,
+    prefix: 'feedback-md-session:'
+  });
+} else {
+  console.warn('REDIS_URL is not set. Using temporary MemoryStore for testing only.');
+}
+
 app.use(
   session({
+    store: sessionStore,
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    name: 'feedback_md_sid',
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: APP_BASE_URL.startsWith('https://')
+      secure: APP_BASE_URL.startsWith('https://'),
+      maxAge: 1000 * 60 * 60 * 8
     }
   })
 );
@@ -379,8 +408,4 @@ app.listen(PORT, () => {
   console.log(`App base URL: ${APP_BASE_URL}`);
   console.log(`SP Metadata URL: ${APP_BASE_URL}/saml/metadata`);
   console.log(`ACS URL: ${APP_BASE_URL}/sso/acs`);
-});
-
-app.get('*', requireLogin, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
