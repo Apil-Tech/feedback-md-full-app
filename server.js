@@ -131,60 +131,23 @@ function getAttribute(profile, possibleNames) {
 
   return "";
 }
-
 function mapSamlProfile(profile) {
-
   const email =
-    getAttribute(profile, [
-      "email",
-      "Email",
-      "mail",
-      "user.email",
-      "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress",
-    ]) ||
+    getAttribute(profile, ["email"]) ||
     profile.nameID ||
     "";
 
   const name =
-    getAttribute(profile, [
-      "name",
-      "display_name",
-      "displayName",
-      "full_name",
-      "fullName",
-      "first_name",
-      "firstName",
-      "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
-    ]) || "";
+    getAttribute(profile, ["display_name"]) || "";
 
   const office =
-    getAttribute(profile, [
-      "office",
-      "department_name",
-      "department",
-      "Department",
-      "location_name",
-      "location",
-      "Location",
-      "team",
-      "Team",
-    ]) || "";
+    getAttribute(profile, ["department_name"]) || "";
 
   const employeeId =
-    getAttribute(profile, [
-      "employeeId",
-      "employee_id",
-      "employee_number",
-      "employeeNumber",
-    ]) || "";
+    getAttribute(profile, ["employee_id"]) || "";
 
   const jobTitle =
-    getAttribute(profile, [
-      "jobTitle",
-      "job_title",
-      "title",
-      "Title",
-    ]) || "";
+    getAttribute(profile, ["job_title"]) || "";
 
   return {
     email,
@@ -197,6 +160,7 @@ function mapSamlProfile(profile) {
     rawAttributes: profile.attributes || {},
   };
 }
+
 const samlStrategy = new SamlStrategy(
   {
     entryPoint: BLINK_LOGIN_URL,
