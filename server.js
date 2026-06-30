@@ -132,22 +132,15 @@ function getAttribute(profile, possibleNames) {
   return "";
 }
 function mapSamlProfile(profile) {
-  const email =
-    getAttribute(profile, ["email"]) ||
-    profile.nameID ||
-    "";
+  const email = getAttribute(profile, ["email"]) || profile.nameID || "";
 
-  const name =
-    getAttribute(profile, ["display_name"]) || "";
+  const name = getAttribute(profile, ["display_name"]) || "";
 
-  const office =
-    getAttribute(profile, ["department_name"]) || "";
+  const office = getAttribute(profile, ["department_name"]) || "";
 
-  const employeeId =
-    getAttribute(profile, ["employee_id"]) || "";
+  const employeeId = getAttribute(profile, ["employee_id"]) || "";
 
-  const jobTitle =
-    getAttribute(profile, ["job_title"]) || "";
+  const jobTitle = getAttribute(profile, ["job_title"]) || "";
 
   return {
     email,
@@ -332,9 +325,6 @@ app.get("/api/me", requireLogin, (req, res) => {
     },
   };
 
-  logJson("API ME RESPONSE JSON", responseJson);
-  logJson("REQ USER FULL JSON", req.json || {});
-
   res.json(responseJson);
 });
 
@@ -438,26 +428,4 @@ app.get("/logout", (req, res, next) => {
 
 app.get("*", requireLogin, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-app.listen(PORT, () => {
-  console.log(`Feedback - MD app running on port ${PORT}`);
-  console.log(`App base URL: ${APP_BASE_URL}`);
-  console.log(`SP Metadata URL: ${APP_BASE_URL}/saml/metadata`);
-  console.log(`ACS URL: ${APP_BASE_URL}/sso/acs`);
-});
-
-app.get("/api/debug-user", requireLogin, (req, res) => {
-  const debugJson = {
-    authenticated: true,
-    url: req.originalUrl,
-    query: req.query,
-    sessionID: req.sessionID,
-    user: req.user || {},
-    rawAttributes: req.user?.rawAttributes || {},
-  };
-
-  logJson("DEBUG USER FULL JSON", debugJson);
-
-  res.json(debugJson);
 });
