@@ -135,30 +135,53 @@ function mapSamlProfile(profile) {
     profile.nameID ||
     "";
 
-  const name = getAttribute(profile, [
-    "name",
-    "Name",
-    "displayName",
-    "full_name",
-    "fullName",
-    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
-  ]);
+  const name =
+    getAttribute(profile, [
+      "display_name",
+      "displayName",
+      "name",
+      "Name",
+      "full_name",
+      "fullName",
+      "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+    ]) || "";
 
-  const office = getAttribute(profile, [
-    "office",
-    "Office",
-    "location",
-    "Location",
-    "team",
-    "Team",
-    "department",
-    "Department",
-  ]);
+  const office =
+    getAttribute(profile, [
+      "department_name",
+      "department",
+      "Department",
+      "office",
+      "Office",
+      "location_name",
+      "location",
+      "Location",
+      "team",
+      "Team",
+    ]) || "";
+
+  const employeeId =
+    getAttribute(profile, [
+      "employee_id",
+      "employeeId",
+      "employee_number",
+      "employeeNumber",
+    ]) || "";
+
+  const jobTitle =
+    getAttribute(profile, [
+      "job_title",
+      "jobTitle",
+      "title",
+      "Title",
+    ]) || "";
 
   return {
     email,
     name,
     office,
+    employeeId,
+    jobTitle,
     nameID: profile.nameID || "",
     sessionIndex: profile.sessionIndex || "",
     rawAttributes: profile.attributes || {},
@@ -321,11 +344,15 @@ app.get("/api/me", requireLogin, (req, res) => {
       name: req.user.name || "",
       office: req.user.office || "",
       email: req.user.email || "",
+      employeeId: req.user.employeeId || "",
+      jobTitle: req.user.jobTitle || "",
     },
     missing: {
-      name: !req.user.name,
-      office: !req.user.office,
-      email: !req.user.email,
+     name: !req.user.name || "",
+      office: !req.user.office || "",
+      email: !req.user.email || "",
+      employeeId: !req.user.employeeId || "",
+      jobTitle: !req.user.jobTitle || "",
     },
   });
 });
