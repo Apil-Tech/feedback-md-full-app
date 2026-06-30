@@ -133,8 +133,6 @@ function getAttribute(profile, possibleNames) {
 }
 
 function mapSamlProfile(profile) {
- logJson("FULL BLINK SAML PROFILE JSON", profile);
-  logJson("BLINK SAML ATTRIBUTES JSON", profile.attributes || {});
 
   const email =
     getAttribute(profile, [
@@ -221,6 +219,7 @@ const samlStrategy = new SamlStrategy(
   },
   (profile, done) => {
     const user = mapSamlProfile(profile);
+    logJson("samlStrategy user RESPONSE JSON", user);
     return done(null, user);
   },
 );
@@ -271,6 +270,7 @@ app.get("/debug-config", (req, res) => {
 app.get("/saml/metadata", (req, res) => {
   try {
     const metadata = samlStrategy.generateServiceProviderMetadata(null, null);
+    logJson("metadata RESPONSE JSON", metadata);
     res.type("application/xml").send(metadata);
   } catch (error) {
     res
@@ -369,7 +369,7 @@ app.get("/api/me", requireLogin, (req, res) => {
   };
 
   logJson("API ME RESPONSE JSON", responseJson);
-  logJson("REQ USER FULL JSON", req.user || {});
+  logJson("REQ USER FULL JSON", req.json || {});
 
   res.json(responseJson);
 });
