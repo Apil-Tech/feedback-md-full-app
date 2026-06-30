@@ -45,16 +45,7 @@ if (!blinkCertificate) {
     certAbsolutePath,
   );
 }
-function logJson(title, data) {
-  console.log(`\n===== ${title} =====`);
-  try {
-    console.log(JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.log("Could not stringify JSON:", error.message);
-    console.log(data);
-  }
-  console.log(`===== END ${title} =====\n`);
-}
+
 app.set("trust proxy", 1);
 
 app.use(
@@ -133,13 +124,8 @@ function getAttribute(profile, possibleNames) {
 }
 
 function mapSamlProfile(profile) {
-   logJson("FULL BLINK SAML PROFILE JSON", profile);
+ logJson("FULL BLINK SAML PROFILE JSON", profile);
   logJson("BLINK SAML ATTRIBUTES JSON", profile.attributes || {});
-  logJson("BLINK SAML NAME ID JSON", {
-    nameID: profile.nameID || "",
-    nameIDFormat: profile.nameIDFormat || "",
-    sessionIndex: profile.sessionIndex || ""
-  });
 
   const email =
     getAttribute(profile, [
@@ -355,7 +341,7 @@ app.get("/login-failed", (req, res) => {
 });
 
 app.get("/api/me", requireLogin, (req, res) => {
-  res.json({
+  const responseJson = {
     authenticated: true,
     user: {
       name: req.user.name || "",
@@ -371,9 +357,12 @@ app.get("/api/me", requireLogin, (req, res) => {
       employeeId: !req.user.employeeId,
       jobTitle: !req.user.jobTitle,
     },
-  });
+  };
+
   logJson("API ME RESPONSE JSON", responseJson);
   logJson("REQ USER FULL JSON", req.user || {});
+
+  res.json(responseJson);
 });
 
 app.post("/api/feedback", requireLogin, async (req, res) => {
