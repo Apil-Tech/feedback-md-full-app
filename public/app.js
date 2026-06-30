@@ -10,6 +10,15 @@ const staffName = document.getElementById('staffName');
 const staffOffice = document.getElementById('staffOffice');
 const staffEmail = document.getElementById('staffEmail');
 
+const urlParams = new URLSearchParams(window.location.search);
+
+const blinkUser = {
+  name: urlParams.get('name') || '',
+  office: urlParams.get('office') || '',
+  email: urlParams.get('email') || '',
+  employeeId: urlParams.get('employee_id') || ''
+};
+
 function showStatus(type, message) {
   statusMessage.className = `status ${type}`;
   statusMessage.textContent = message;
@@ -31,40 +40,16 @@ function setUserField(input, value, fallback) {
   input.value = value && value.trim() ? value : fallback;
 }
 
-async function loadUser() {
-  try {
-    const response = await fetch('/api/me', {
-      method: 'GET',
-      credentials: 'same-origin',
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
+function loadUser() {
+  setUserField(staffName, blinkUser.name, 'Not provided by Blink');
+  setUserField(staffOffice, blinkUser.office, 'Not provided by Blink');
+  setUserField(staffEmail, blinkUser.email, 'Not provided by Blink');
 
-    if (response.status === 401) {
-      window.location.href = '/login';
-      return;
-    }
-
-    const data = await response.json();
-
-    if (!data.authenticated) {
-      window.location.href = data.loginUrl || '/login';
-      return;
-    }
-
-    const user = data.user || {};
-
-    setUserField(staffName, user.name, 'Not provided by Blink SSO');
-    setUserField(staffOffice, user.office, 'Not provided by Blink SSO');
-    setUserField(staffEmail, user.email, 'Not provided by Blink SSO');
-
-    if (data.missing && data.missing.office) {
-      showStatus('warning', 'Office was not received from Blink SSO. Please check the Blink attribute statement for office.');
-    }
-  } catch (error) {
-    console.error(error);
-    showStatus('error', 'Could not load staff details. Please refresh the page or contact admin.');
+  if (!blinkUser.name || !blinkUser.office || !blinkUser.email) {
+    showStatus(
+      'warning',
+      'Some staff details were not received from Blink. Please check the Micro-App URL parameters.'
+    );
   }
 }
 
@@ -94,7 +79,13 @@ form.addEventListener('submit', async (event) => {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify({ feedback })
+      body: JSON.stringify({
+        name: blinkUser.name,
+        office: blinkUser.office,
+        email: blinkUser.email,
+        employeeId: blinkUser.employeeId,
+        feedback
+      })
     });
 
     const data = await response.json();

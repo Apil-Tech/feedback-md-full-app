@@ -18,7 +18,7 @@
       </div>
 
       <p class="intro">
-        Please share your feedback below. Your name, office, and email are captured automatically from Blink SSO.
+        Please share your feedback below. Your staff details are captured automatically from Blink.
       </p>
 
       <div id="statusMessage" class="status hidden"></div>
@@ -27,18 +27,36 @@
         <div class="field-grid">
           <div class="field">
             <label for="staffName">Name</label>
-            <input id="staffName" name="staffName" type="text" readonly value="Loading from Blink SSO...">
+            <input
+              id="staffName"
+              name="staffName"
+              type="text"
+              readonly
+              value="Loading from Blink..."
+            >
           </div>
 
           <div class="field">
             <label for="staffOffice">Office</label>
-            <input id="staffOffice" name="staffOffice" type="text" readonly value="Loading from Blink SSO...">
+            <input
+              id="staffOffice"
+              name="staffOffice"
+              type="text"
+              readonly
+              value="Loading from Blink..."
+            >
           </div>
         </div>
 
         <div class="field">
           <label for="staffEmail">Email</label>
-          <input id="staffEmail" name="staffEmail" type="email" readonly value="Loading from Blink SSO...">
+          <input
+            id="staffEmail"
+            name="staffEmail"
+            type="email"
+            readonly
+            value="Loading from Blink..."
+          >
         </div>
 
         <div class="field">
@@ -50,6 +68,7 @@
             maxlength="3000"
             placeholder="Please write your feedback here..."
           ></textarea>
+
           <div class="helper-row">
             <span>Required</span>
             <span><span id="charCount">0</span>/3000</span>
