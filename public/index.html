@@ -3,88 +3,360 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Feedback - MD</title>
-  <link rel="stylesheet" href="/styles.css">
+  <meta name="title" content="Feedback | Multi Dynamic">
+  <meta name="description" content="Share feedback with Multi Dynamic.">
+  <title>Feedback | Multi Dynamic</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #1f2933;
+      background: #f5f8fd;
+    }
+
+    .page {
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    .feedback-wrap {
+      width: 100%;
+      max-width: 560px;
+    }
+
+    .logo-box {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .logo {
+      display: block;
+      width: 210px;
+      max-width: 72%;
+      height: auto;
+      margin: 0 auto;
+    }
+
+    .logo-fallback {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      background: #02519b;
+      color: #fff;
+      font-size: 30px;
+      font-weight: 700;
+      margin: 0 auto;
+    }
+
+    .form-box {
+      background: #fff;
+      border: 1px solid #e3e8ee;
+      border-radius: 8px;
+      padding: 32px;
+      box-shadow: 0 18px 50px rgba(2, 81, 155, 0.12);
+      border-top: 6px solid #02519b;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.2;
+      font-weight: 700;
+      text-align: center;
+      color: #02519b;
+    }
+
+    .intro {
+      margin: 0 0 28px;
+      color: #667085;
+      font-size: 15px;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .intro:after {
+      content: "";
+      display: block;
+      width: 56px;
+      height: 3px;
+      margin: 18px auto 0;
+      border-radius: 999px;
+      background: #f36421;
+    }
+
+    .status {
+      margin-bottom: 20px;
+      padding: 12px 14px;
+      border-radius: 6px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .status.success {
+      color: #02519b;
+      background: #edf6ff;
+      border: 1px solid rgba(2, 81, 155, 0.18);
+    }
+
+    .status.warning {
+      color: #8a4b00;
+      background: #fff7e6;
+      border: 1px solid rgba(243, 100, 33, 0.25);
+    }
+
+    .status.error {
+      color: #b42318;
+      background: #fff1f0;
+      border: 1px solid rgba(180, 35, 24, 0.22);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .field {
+      margin-bottom: 18px;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #02519b;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid #ccd5df;
+      border-radius: 6px;
+      padding: 12px 13px;
+      font: inherit;
+      color: #1f2933;
+      background: #fff;
+      outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: #f36421;
+      box-shadow: 0 0 0 3px rgba(243, 100, 33, 0.16);
+    }
+
+    input[readonly] {
+      background: #f5f8fd;
+      color: #667085;
+      cursor: default;
+    }
+
+    input[readonly]:focus {
+      border-color: #ccd5df;
+      box-shadow: none;
+    }
+
+    textarea {
+      min-height: 150px;
+      resize: vertical;
+    }
+
+    .required {
+      color: #d9531e;
+    }
+
+    .helper-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 7px;
+      color: #667085;
+      font-size: 13px;
+    }
+
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 6px;
+      padding: 13px 20px;
+      color: #fff;
+      background: #f36421;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.16s ease, transform 0.16s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    button:hover {
+      background: #02519b;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button:disabled {
+      opacity: 0.75;
+      cursor: not-allowed;
+    }
+
+    .loader {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    .footer-note {
+      margin: 18px 0 0;
+      text-align: center;
+      color: #667085;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 560px) {
+      .page {
+        align-items: flex-start;
+        padding-top: 24px;
+      }
+
+      .form-box {
+        padding: 24px 18px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      .field-grid {
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+    }
+  </style>
 </head>
+
 <body>
-  <main class="page-shell">
-    <section class="feedback-card">
-      <div class="brand-row">
-        <div class="brand-mark">MD</div>
-        <div>
-          <p class="eyebrow">Multi Dynamic</p>
-          <h1>Feedback - MD</h1>
-        </div>
+  <main class="page">
+    <div class="feedback-wrap">
+      <div class="logo-box">
+        <img
+          class="logo"
+          src="https://multidynamic.com.au/assets/images/logo/logo.png"
+          alt="Multi Dynamic"
+          onerror="this.style.display='none'; document.getElementById('logoFallback').style.display='inline-flex';"
+        >
+        <div id="logoFallback" class="logo-fallback" style="display:none;">MD</div>
       </div>
 
-      <p class="intro">
-        Please share your feedback below. Your staff details are captured automatically from Blink.
-      </p>
+      <section class="form-box">
+        <h1>Feedback</h1>
 
-      <div id="statusMessage" class="status hidden"></div>
+        <p class="intro">
+          Please share your feedback below. Your name, office, and email are captured automatically from Blink SSO.
+        </p>
 
-      <form id="feedbackForm">
-        <div class="field-grid">
-          <div class="field">
-            <label for="staffName">Name</label>
-            <input
-              id="staffName"
-              name="staffName"
-              type="text"
-              readonly
-              value="Loading from Blink..."
-            >
+        <div id="statusMessage" class="status hidden"></div>
+
+        <form id="feedbackForm">
+          <div class="field-grid">
+            <div class="field">
+              <label for="staffName">Name</label>
+              <input
+                id="staffName"
+                name="staffName"
+                type="text"
+                readonly
+                value="Loading from Blink SSO..."
+              >
+            </div>
+
+            <div class="field">
+              <label for="staffOffice">Office</label>
+              <input
+                id="staffOffice"
+                name="staffOffice"
+                type="text"
+                readonly
+                value="Loading from Blink SSO..."
+              >
+            </div>
           </div>
 
           <div class="field">
-            <label for="staffOffice">Office</label>
+            <label for="staffEmail">Email</label>
             <input
-              id="staffOffice"
-              name="staffOffice"
-              type="text"
+              id="staffEmail"
+              name="staffEmail"
+              type="email"
               readonly
-              value="Loading from Blink..."
+              value="Loading from Blink SSO..."
             >
           </div>
-        </div>
 
-        <div class="field">
-          <label for="staffEmail">Email</label>
-          <input
-            id="staffEmail"
-            name="staffEmail"
-            type="email"
-            readonly
-            value="Loading from Blink..."
-          >
-        </div>
+          <input id="staffEmployeeId" name="staffEmployeeId" type="hidden">
+          <input id="staffDepartment" name="staffDepartment" type="hidden">
+          <input id="staffJobTitle" name="staffJobTitle" type="hidden">
 
-        <div class="field">
-          <label for="feedback">Feedback <span class="required">*</span></label>
-          <textarea
-            id="feedback"
-            name="feedback"
-            required
-            maxlength="3000"
-            placeholder="Please write your feedback here..."
-          ></textarea>
+          <div class="field">
+            <label for="feedback">Feedback <span class="required">*</span></label>
+            <textarea
+              id="feedback"
+              name="feedback"
+              required
+              maxlength="3000"
+              placeholder="Write your feedback here..."
+            ></textarea>
 
-          <div class="helper-row">
-            <span>Required</span>
-            <span><span id="charCount">0</span>/3000</span>
+            <div class="helper-row">
+              <span>Required</span>
+              <span><span id="charCount">0</span>/3000</span>
+            </div>
           </div>
-        </div>
 
-        <button id="submitButton" type="submit">
-          <span id="buttonText">Submit Feedback</span>
-          <span id="buttonLoader" class="loader hidden"></span>
-        </button>
-      </form>
+          <button id="submitButton" type="submit">
+            <span id="buttonText">Submit Feedback</span>
+            <span id="buttonLoader" class="loader hidden"></span>
+          </button>
+        </form>
 
-      <p class="footer-note">
-        This form is for internal staff feedback only.
-      </p>
-    </section>
+        <p class="footer-note">
+          This form is for internal staff feedback only.
+        </p>
+      </section>
+    </div>
   </main>
 
   <script src="/app.js"></script>

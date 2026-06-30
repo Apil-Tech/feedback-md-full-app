@@ -28,7 +28,42 @@ function setLoading(isLoading) {
 }
 
 function setUserField(input, value, fallback) {
-  input.value = value && value.trim() ? value : fallback;
+  input.value = value && String(value).trim() ? String(value).trim() : fallback;
+}
+
+function normaliseBlinkUser(data) {
+  const user = data.user || data.current_user || {};
+
+  return {
+    name:
+      user.name ||
+      user.display_name ||
+      user.full_name ||
+      '',
+
+    office:
+      user.office ||
+      user.department_name ||
+      user.department ||
+      user.location_name ||
+      '',
+
+    email:
+      user.email ||
+      user.mail ||
+      '',
+
+    employeeId:
+      user.employeeId ||
+      user.employee_id ||
+      user.employee_number ||
+      '',
+
+    jobTitle:
+      user.jobTitle ||
+      user.job_title ||
+      ''
+  };
 }
 
 async function loadUser() {
@@ -53,13 +88,13 @@ async function loadUser() {
       return;
     }
 
-    const user = data.user || {};
+    const user = normaliseBlinkUser(data);
 
     setUserField(staffName, user.name, 'Not provided by Blink SSO');
     setUserField(staffOffice, user.office, 'Not provided by Blink SSO');
     setUserField(staffEmail, user.email, 'Not provided by Blink SSO');
 
-    if (data.missing && (data.missing.name || data.missing.office || data.missing.email)) {
+    if (!user.name || !user.office || !user.email) {
       showStatus(
         'warning',
         'Some staff details were not received from Blink SSO. Please check Blink attribute statements.'
