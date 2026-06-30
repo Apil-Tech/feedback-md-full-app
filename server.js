@@ -124,6 +124,13 @@ function getAttribute(profile, possibleNames) {
 }
 
 function mapSamlProfile(profile) {
+ console.log("===== BLINK SAML PROFILE RECEIVED =====");
+  console.log(JSON.stringify(profile, null, 2));
+  console.log("===== BLINK SAML ATTRIBUTES =====");
+  console.log(JSON.stringify(profile.attributes || {}, null, 2));
+  console.log("===== BLINK SAML NAME ID =====");
+  console.log(profile.nameID || "");
+
   const email =
     getAttribute(profile, [
       "email",
