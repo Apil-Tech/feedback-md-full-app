@@ -323,11 +323,23 @@ app.get("/api/me", requireLogin, (req, res) => {
 });
 
 app.post("/api/feedback", async (req, res) => {
+  const blinkUser = req.body.current_user || req.body.user || {};
+
   const user = req.user || {
-    name: req.body.name || "",
-    office: req.body.office || "",
-    email: req.body.email || "",
-    employeeId: req.body.employeeId || "",
+    name: req.body.name || blinkUser.display_name || "",
+    office:
+      req.body.office ||
+      blinkUser.location_name ||
+      blinkUser.department_name ||
+      "",
+    email: req.body.email || blinkUser.email || "",
+    employeeId:
+      req.body.employeeId ||
+      req.body.employee_id ||
+      blinkUser.employee_id ||
+      "",
+    department: req.body.department || blinkUser.department_name || "",
+    jobTitle: req.body.jobTitle || blinkUser.job_title || "",
   };
   const feedback = String(req.body.feedback || "").trim();
 
@@ -348,6 +360,8 @@ app.post("/api/feedback", async (req, res) => {
     office: user.office || "",
     email: user.email || "",
     employeeId: user.employeeId || "",
+    department: user.department || "",
+    jobTitle: user.jobTitle || "",
     feedback,
   };
 
@@ -361,7 +375,6 @@ app.post("/api/feedback", async (req, res) => {
   );
 
   const subject = "New Staff Feedback Submitted - Feedback MD";
-
   const body = [
     "A new staff feedback response has been submitted.",
     "",
@@ -369,13 +382,14 @@ app.post("/api/feedback", async (req, res) => {
     `Office: ${submission.office || "Not provided by Blink"}`,
     `Email: ${submission.email || "Not provided by Blink"}`,
     `Employee ID: ${submission.employeeId || "Not provided by Blink"}`,
+    `Department: ${submission.department || "Not provided by Blink"}`,
+    `Job Title: ${submission.jobTitle || "Not provided by Blink"}`,
     "",
     "Feedback:",
     submission.feedback,
     "",
     `Submitted Date/Time: ${submittedAt}`,
   ].join("\n");
-
   try {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
