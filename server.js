@@ -14,7 +14,16 @@ const RedisStore =
   connectRedis.RedisStore || connectRedis.default || connectRedis;
 
 const app = express();
-
+function logJson(title, data) {
+  console.log(`\n===== ${title} =====`);
+  try {
+    console.log(JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.log("Could not stringify JSON:", error.message);
+    console.log(data);
+  }
+  console.log(`===== END ${title} =====\n`);
+}
 const APP_BASE_URL = (
   process.env.APP_BASE_URL || "https://feedback-md-full-app.onrender.com"
 ).replace(/\/$/, "");
