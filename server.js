@@ -90,10 +90,11 @@ app.use(
     resave: false,
     saveUninitialized: false,
     name: "feedback_md_sid",
+    proxy: true,
     cookie: {
       httpOnly: true,
-      sameSite: "lax",
-      secure: APP_BASE_URL.startsWith("https://"),
+      sameSite: "none",
+      secure: true,
       maxAge: 1000 * 60 * 60 * 8,
     },
   }),
@@ -297,7 +298,14 @@ app.post("/sso/acs", (req, res, next) => {
         `);
       }
 
-      return res.redirect("/");
+      req.session.save((saveError) => {
+        if (saveError) {
+          console.error("SESSION SAVE ERROR:", saveError);
+          return res.status(500).send("Session save error after SAML login.");
+        }
+
+        return res.redirect("/");
+      });
     });
   })(req, res, next);
 });
@@ -322,25 +330,8 @@ app.get("/api/me", requireLogin, (req, res) => {
   });
 });
 
-app.post("/api/feedback", async (req, res) => {
-  const blinkUser = req.body.current_user || req.body.user || {};
-
-  const user = req.user || {
-    name: req.body.name || blinkUser.display_name || "",
-    office:
-      req.body.office ||
-      blinkUser.location_name ||
-      blinkUser.department_name ||
-      "",
-    email: req.body.email || blinkUser.email || "",
-    employeeId:
-      req.body.employeeId ||
-      req.body.employee_id ||
-      blinkUser.employee_id ||
-      "",
-    department: req.body.department || blinkUser.department_name || "",
-    jobTitle: req.body.jobTitle || blinkUser.job_title || "",
-  };
+app.post("/api/feedback", requireLogin, async (req, res) => {
+  const user = req.user || {};
   const feedback = String(req.body.feedback || "").trim();
 
   if (!feedback) {
@@ -437,7 +428,7 @@ app.get("/logout", (req, res, next) => {
   });
 });
 
-app.get("*", (req, res) => {
+app.get("*", requireLogin, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 

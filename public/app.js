@@ -10,55 +10,6 @@ const staffName = document.getElementById('staffName');
 const staffOffice = document.getElementById('staffOffice');
 const staffEmail = document.getElementById('staffEmail');
 
-const urlParams = new URLSearchParams(window.location.search);
-
-function getParam(...keys) {
-  for (const key of keys) {
-    const value = urlParams.get(key);
-
-    if (value && value.trim()) {
-      return value.trim();
-    }
-  }
-
-  return '';
-}
-
-function isBlinkPlaceholder(value) {
-  return value && value.startsWith('[') && value.endsWith(']');
-}
-
-function cleanBlinkValue(value) {
-  if (!value) return '';
-  const cleaned = decodeURIComponent(value).trim();
-
-  // If Blink did not replace the placeholder, ignore it.
-  if (isBlinkPlaceholder(cleaned)) return '';
-
-  return cleaned;
-}
-
-const blinkUser = {
-  name: cleanBlinkValue(
-    getParam('name', 'display_name', 'full_name', 'employee_surname')
-  ),
-  office: cleanBlinkValue(
-    getParam('office', 'location_name', 'location', 'department_name', 'department')
-  ),
-  email: cleanBlinkValue(
-    getParam('email', 'user_email')
-  ),
-  employeeId: cleanBlinkValue(
-    getParam('employee_id', 'employeeId', 'employee_number')
-  ),
-  department: cleanBlinkValue(
-    getParam('department', 'department_name')
-  ),
-  jobTitle: cleanBlinkValue(
-    getParam('job_title', 'jobTitle')
-  )
-};
-
 function showStatus(type, message) {
   statusMessage.className = `status ${type}`;
   statusMessage.textContent = message;
@@ -80,16 +31,43 @@ function setUserField(input, value, fallback) {
   input.value = value && value.trim() ? value : fallback;
 }
 
-function loadUser() {
-  setUserField(staffName, blinkUser.name, 'Not provided by Blink');
-  setUserField(staffOffice, blinkUser.office, 'Not provided by Blink');
-  setUserField(staffEmail, blinkUser.email, 'Not provided by Blink');
+async function loadUser() {
+  try {
+    const response = await fetch('/api/me', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json'
+      }
+    });
 
-  if (!blinkUser.name || !blinkUser.office || !blinkUser.email) {
-    showStatus(
-      'warning',
-      'Some staff details were not received from Blink. Please check the Micro-App URL parameters.'
-    );
+    if (response.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
+
+    const data = await response.json();
+
+    if (!data.authenticated) {
+      window.location.href = data.loginUrl || '/login';
+      return;
+    }
+
+    const user = data.user || {};
+
+    setUserField(staffName, user.name, 'Not provided by Blink SSO');
+    setUserField(staffOffice, user.office, 'Not provided by Blink SSO');
+    setUserField(staffEmail, user.email, 'Not provided by Blink SSO');
+
+    if (data.missing && (data.missing.name || data.missing.office || data.missing.email)) {
+      showStatus(
+        'warning',
+        'Some staff details were not received from Blink SSO. Please check Blink attribute statements.'
+      );
+    }
+  } catch (error) {
+    console.error(error);
+    showStatus('error', 'Could not load staff details from SSO. Please refresh the page or contact admin.');
   }
 }
 
@@ -119,16 +97,13 @@ form.addEventListener('submit', async (event) => {
         'Content-Type': 'application/json',
         Accept: 'application/json'
       },
-      body: JSON.stringify({
-        name: blinkUser.name,
-        office: blinkUser.office,
-        email: blinkUser.email,
-        employeeId: blinkUser.employeeId,
-        department: blinkUser.department,
-        jobTitle: blinkUser.jobTitle,
-        feedback
-      })
+      body: JSON.stringify({ feedback })
     });
+
+    if (response.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
 
     const data = await response.json();
 
@@ -139,10 +114,7 @@ form.addEventListener('submit', async (event) => {
 
     feedbackInput.value = '';
     charCount.textContent = '0';
-    showStatus(
-      'success',
-      data.message || 'Thank you. Your feedback has been submitted successfully.'
-    );
+    showStatus('success', data.message || 'Thank you. Your feedback has been submitted successfully.');
   } catch (error) {
     console.error(error);
     showStatus('error', 'Could not submit feedback. Please check your connection and try again.');
