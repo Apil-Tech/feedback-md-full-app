@@ -137,22 +137,22 @@ function mapSamlProfile(profile) {
 
   const name =
     getAttribute(profile, [
+      "name",
       "display_name",
       "displayName",
-      "name",
-      "Name",
       "full_name",
       "fullName",
+      "first_name",
+      "firstName",
       "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
     ]) || "";
 
   const office =
     getAttribute(profile, [
+      "office",
       "department_name",
       "department",
       "Department",
-      "office",
-      "Office",
       "location_name",
       "location",
       "Location",
@@ -162,16 +162,16 @@ function mapSamlProfile(profile) {
 
   const employeeId =
     getAttribute(profile, [
-      "employee_id",
       "employeeId",
+      "employee_id",
       "employee_number",
       "employeeNumber",
     ]) || "";
 
   const jobTitle =
     getAttribute(profile, [
-      "job_title",
       "jobTitle",
+      "job_title",
       "title",
       "Title",
     ]) || "";
@@ -348,11 +348,11 @@ app.get("/api/me", requireLogin, (req, res) => {
       jobTitle: req.user.jobTitle || "",
     },
     missing: {
-     name: !req.user.name || "",
-      office: !req.user.office || "",
-      email: !req.user.email || "",
-      employeeId: !req.user.employeeId || "",
-      jobTitle: !req.user.jobTitle || "",
+      name: !req.user.name,
+      office: !req.user.office,
+      email: !req.user.email,
+      employeeId: !req.user.employeeId,
+      jobTitle: !req.user.jobTitle,
     },
   });
 });
@@ -464,4 +464,11 @@ app.listen(PORT, () => {
   console.log(`App base URL: ${APP_BASE_URL}`);
   console.log(`SP Metadata URL: ${APP_BASE_URL}/saml/metadata`);
   console.log(`ACS URL: ${APP_BASE_URL}/sso/acs`);
+});
+
+app.get("/api/debug-user", requireLogin, (req, res) => {
+  res.json({
+    user: req.user,
+    rawAttributes: req.user.rawAttributes || {},
+  });
 });
