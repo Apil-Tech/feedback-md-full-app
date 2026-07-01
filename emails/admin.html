@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>New Staff Feedback Submitted</title>
+    <style>
+      body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #f5f8fd; color: #1f2933; }
+    </style>
+  </head>
+  <body style="padding:24px;">
+    <div style="max-width:680px;margin:0 auto;border:1px solid #e3e8ee;border-radius:8px;background:#fff;overflow:hidden;">
+      <div style="background:#02519b;padding:18px;color:#fff;display:flex;align-items:center;gap:12px;">
+        <img src="{{logoUrl}}" alt="Multi Dynamic" style="height:40px;">
+        <h2 style="margin:0;font-size:18px;">New Staff Feedback Submitted</h2>
+      </div>
+      <div style="padding:18px;">
+        <p>A new staff feedback response has been submitted. Details below:</p>
+        <ul style="padding-left:18px;color:#1f2933;">
+          <li><strong>Name:</strong> {{name}}</li>
+          <li><strong>Office:</strong> {{office}}</li>
+          <li><strong>Email:</strong> {{email}}</li>
+          <li><strong>Employee ID:</strong> {{employeeId}}</li>
+          <li><strong>Job Title:</strong> {{jobTitle}}</li>
+          <li><strong>Submitted:</strong> {{submittedAt}}</li>
+        </ul>
+        <h3 style="color:#02519b;">Feedback</h3>
+        <pre style="white-space:pre-wrap;background:#f5f8fd;padding:12px;border-radius:6px;border:1px solid #e9eef6;">{{feedback}}</pre>
+      </div>
+    </div>
+  </body>
+</html>

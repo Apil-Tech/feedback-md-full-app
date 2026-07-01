@@ -16,6 +16,18 @@ const RedisStore =
 
 const app = express();
 
+const emailTemplatesDir = path.resolve(__dirname, "emails");
+const emailTemplates = {
+  admin: fs.readFileSync(path.join(emailTemplatesDir, "admin.html"), "utf8"),
+  user: fs.readFileSync(path.join(emailTemplatesDir, "user.html"), "utf8"),
+};
+
+function renderTemplate(template, values) {
+  return String(template).replace(/{{\s*([\w]+)\s*}}/g, (_, key) => {
+    return String(values[key] ?? "");
+  });
+}
+
 const APP_BASE_URL = (
   process.env.APP_BASE_URL || "https://feedback.multidynamic.com.au"
 ).replace(/\/$/, "");
@@ -416,45 +428,31 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
       .replace(/'/g, '&#39;');
   }
 
+  function renderTemplate(template, values) {
+    return String(template).replace(/{{\s*([\w]+)\s*}}/g, (_, key) => {
+      return escapeHtml(values[key] ?? '');
+    });
+  }
+
   const logoUrl = process.env.LOGO_URL || 'https://multidynamic.com.au/assets/images/logo/logo.png';
+  const templatesDir = path.resolve(__dirname, 'emails');
 
-  const htmlAdmin = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;color:#1f2933;background:#f5f8fd;padding:24px;">
-  <div style="max-width:680px;margin:0 auto;border:1px solid #e3e8ee;border-radius:8px;background:#fff;overflow:hidden;">
-    <div style="background:#02519b;padding:18px;color:#fff;display:flex;align-items:center;gap:12px;">
-      <img src="${escapeHtml(logoUrl)}" alt="Multi Dynamic" style="height:40px;"> 
-      <h2 style="margin:0;font-size:18px;">New Staff Feedback Submitted</h2>
-    </div>
-    <div style="padding:18px;">
-      <p>A new staff feedback response has been submitted. Details below:</p>
-      <ul>
-        <li><strong>Name:</strong> ${escapeHtml(submission.name || 'Not provided')}</li>
-        <li><strong>Office:</strong> ${escapeHtml(submission.office || 'Not provided')}</li>
-        <li><strong>Email:</strong> ${escapeHtml(submission.email || 'Not provided')}</li>
-        <li><strong>Employee ID:</strong> ${escapeHtml(submission.employeeId || 'Not provided')}</li>
-        <li><strong>Job Title:</strong> ${escapeHtml(submission.jobTitle || 'Not provided')}</li>
-        <li><strong>Submitted:</strong> ${escapeHtml(submittedAt)}</li>
-      </ul>
-      <h3 style="color:#02519b;">Feedback</h3>
-      <pre style="white-space:pre-wrap;background:#f5f8fd;padding:12px;border-radius:6px;border:1px solid #e9eef6;">${escapeHtml(submission.feedback)}</pre>
-    </div>
-  </div>
-</body></html>`;
+  const adminTemplate = fs.readFileSync(path.join(templatesDir, 'admin.html'), 'utf8');
+  const userTemplate = fs.readFileSync(path.join(templatesDir, 'user.html'), 'utf8');
 
-  const htmlUser = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;color:#1f2933;background:#f5f8fd;padding:24px;">
-    <div style="max-width:680px;margin:0 auto;border:1px solid #e3e8ee;border-radius:8px;background:#fff;overflow:hidden;">
-      <div style="background:#02519b;padding:18px;color:#fff;display:flex;align-items:center;gap:12px;">
-        <img src="${escapeHtml(logoUrl)}" alt="Multi Dynamic" style="height:40px;">
-        <h2 style="margin:0;font-size:18px;">Thanks for your feedback</h2>
-      </div>
-      <div style="padding:18px;">
-        <p>Hi ${escapeHtml(submission.name || 'there')},</p>
-        <p>Thank you for sharing your feedback with Multi Dynamic. We've received your message and will review it.</p>
-        <h3 style="color:#02519b;">Your submitted feedback</h3>
-        <pre style="white-space:pre-wrap;background:#f5f8fd;padding:12px;border-radius:6px;border:1px solid #e9eef6;">${escapeHtml(submission.feedback)}</pre>
-        <p style="color:#667085;font-size:13px;">If you'd like to follow up, please reply to this email or contact your manager.</p>
-      </div>
-    </div>
-  </body></html>`;
+  const templateData = {
+    logoUrl,
+    name: submission.name || 'there',
+    office: submission.office || 'Not provided',
+    email: submission.email || 'Not provided',
+    employeeId: submission.employeeId || 'Not provided',
+    jobTitle: submission.jobTitle || 'Not provided',
+    submittedAt,
+    feedback: submission.feedback || '',
+  };
+
+  const htmlAdmin = renderTemplate(adminTemplate, templateData);
+  const htmlUser = renderTemplate(userTemplate, templateData);
 
   try {
     // prefer explicit SMTP_* vars, fall back to MAIL_* vars commonly used in .env
@@ -475,13 +473,17 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
       throw new Error('SMTP host is not configured. Set SMTP_HOST or MAIL_HOST in .env.');
     }
 
-    console.log('Using SMTP settings:', {
+    const smtpConfig = {
       host: mailHost,
       port: mailPort,
       user: Boolean(mailUser),
       secure,
       useTls: String(process.env.MAIL_ENCRYPTION || '').toLowerCase() === 'tls',
-    });
+    };
+
+    if (mailHost.includes('mailtrap.io')) {
+      console.warn('WARNING: Mailtrap SMTP is configured. This captures email in Mailtrap and does not deliver to real inboxes.');
+    }
 
     const transporter = nodemailer.createTransport({
       host: mailHost,
@@ -521,7 +523,6 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
         subject: adminMailOptions.subject,
         accepted: adminResult.accepted,
         rejected: adminResult.rejected,
-        htmlAdmin: adminMailOptions.html,
       });
     } catch (adminErr) {
       console.error('Admin email failed', {
@@ -558,13 +559,14 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
           subject: userMailOptions.subject,
           accepted: userResult.accepted,
           rejected: userResult.rejected,
-          htmlUser: userMailOptions.html,
         });
       } catch (userErr) {
         userEmailSent = false;
         userEmailError = String(userErr && (userErr.message || userErr));
         console.error('User email failed', {
-          mailOptions: userMailOptions,
+          from: userMailOptions.from,
+          to: userMailOptions.to,
+          subject: userMailOptions.subject,
           error: userEmailError,
         });
         // Do not throw — user email failure should not prevent a successful submission
