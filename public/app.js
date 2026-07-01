@@ -10,6 +10,8 @@ const staffName = document.getElementById('staffName');
 const staffOffice = document.getElementById('staffOffice');
 const staffEmail = document.getElementById('staffEmail');
 
+const LOGIN_ATTEMPT_KEY = 'feedback_md_login_attempted';
+
 function showStatus(type, message) {
   statusMessage.className = `status ${type}`;
   statusMessage.textContent = message;
@@ -28,6 +30,7 @@ function setLoading(isLoading) {
 }
 
 function setUserField(input, value, fallback) {
+  if (!input) return;
   input.value = value && String(value).trim() ? String(value).trim() : fallback;
 }
 
@@ -66,25 +69,50 @@ function normaliseBlinkUser(data) {
   };
 }
 
+function goToLoginOnce() {
+  const alreadyTried = sessionStorage.getItem(LOGIN_ATTEMPT_KEY);
+
+  if (alreadyTried === 'yes') {
+    setUserField(staffName, '', 'Login session not found');
+    setUserField(staffOffice, '', 'Login session not found');
+    setUserField(staffEmail, '', 'Login session not found');
+
+    showStatus(
+      'warning',
+      'Login was completed, but the session was not found. Please refresh once or open the form in a full browser tab.'
+    );
+    return;
+  }
+
+  sessionStorage.setItem(LOGIN_ATTEMPT_KEY, 'yes');
+
+  if (window.self !== window.top) {
+    window.top.location.href = 'https://feedback.multidynamic.com.au/login';
+  } else {
+    window.location.href = '/login';
+  }
+}
+
 async function loadUser() {
   try {
     const response = await fetch('/api/me', {
       method: 'GET',
       credentials: 'same-origin',
+      cache: 'no-store',
       headers: {
         Accept: 'application/json'
       }
     });
 
     if (response.status === 401) {
-      window.location.href = '/login';
+      goToLoginOnce();
       return;
     }
 
     const data = await response.json();
 
     if (!data.authenticated) {
-      window.location.href = data.loginUrl || '/login';
+      goToLoginOnce();
       return;
     }
 
@@ -94,15 +122,25 @@ async function loadUser() {
     setUserField(staffOffice, user.office, 'Not provided by Blink SSO');
     setUserField(staffEmail, user.email, 'Not provided by Blink SSO');
 
+    sessionStorage.removeItem(LOGIN_ATTEMPT_KEY);
+
     if (!user.name || !user.office || !user.email) {
       showStatus(
         'warning',
         'Some staff details were not received from Blink SSO. Please check Blink attribute statements.'
       );
+      return;
     }
+
+    hideStatus();
   } catch (error) {
     console.error(error);
-    showStatus('error', 'Could not load staff details from SSO. Please refresh the page or contact admin.');
+
+    setUserField(staffName, '', 'Could not load');
+    setUserField(staffOffice, '', 'Could not load');
+    setUserField(staffEmail, '', 'Could not load');
+
+    showStatus('error', 'Could not load staff details. Please refresh the page or contact admin.');
   }
 }
 
@@ -128,6 +166,7 @@ form.addEventListener('submit', async (event) => {
     const response = await fetch('/api/feedback', {
       method: 'POST',
       credentials: 'same-origin',
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json'
@@ -136,7 +175,8 @@ form.addEventListener('submit', async (event) => {
     });
 
     if (response.status === 401) {
-      window.location.href = '/login';
+      showStatus('warning', 'Your session has expired. Redirecting to Blink login...');
+      goToLoginOnce();
       return;
     }
 
@@ -149,6 +189,8 @@ form.addEventListener('submit', async (event) => {
 
     feedbackInput.value = '';
     charCount.textContent = '0';
+    sessionStorage.removeItem(LOGIN_ATTEMPT_KEY);
+
     showStatus('success', data.message || 'Thank you. Your feedback has been submitted successfully.');
   } catch (error) {
     console.error(error);

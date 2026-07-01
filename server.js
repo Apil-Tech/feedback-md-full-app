@@ -10,30 +10,23 @@ const { Strategy: SamlStrategy } = require("@node-saml/passport-saml");
 const nodemailer = require("nodemailer");
 const { createClient } = require("redis");
 const connectRedis = require("connect-redis");
+
 const RedisStore =
   connectRedis.RedisStore || connectRedis.default || connectRedis;
 
 const app = express();
 
-function logJson(title, data) {
-  console.log(`\n===== ${title} =====`);
-  try {
-    console.log(JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.log("Could not stringify JSON:", error.message);
-    console.log(data);
-  }
-  console.log(`===== END ${title} =====\n`);
-}
-
 const APP_BASE_URL = (
-  process.env.APP_BASE_URL || "https://feedback-md-full-app.onrender.com"
+  process.env.APP_BASE_URL || "https://feedback.multidynamic.com.au"
 ).replace(/\/$/, "");
+
 const PORT = Number(process.env.PORT || 3000);
+
 const SESSION_SECRET =
   process.env.SESSION_SECRET || "replace-this-session-secret";
 
 const BLINK_LOGIN_URL = process.env.BLINK_LOGIN_URL;
+
 const BLINK_ENTITY_ID =
   process.env.BLINK_ENTITY_ID ||
   "https://api.joinblink.com/saml/o-0193f1e9-5ec6-7b30-8497-f896dfbc85fb";
@@ -42,6 +35,7 @@ const BLINK_CERT_PATH =
   process.env.BLINK_CERT_PATH || "./config/blink-idp-cert.pem";
 
 const certAbsolutePath = path.resolve(__dirname, BLINK_CERT_PATH);
+
 const blinkCertificate = fs.existsSync(certAbsolutePath)
   ? fs.readFileSync(certAbsolutePath, "utf8")
   : "";
@@ -51,18 +45,19 @@ if (!BLINK_LOGIN_URL) {
 }
 
 if (!blinkCertificate) {
-  console.warn(
-    "WARNING: Blink certificate file is missing or empty:",
-    certAbsolutePath,
-  );
+  console.warn("WARNING: Blink certificate file is missing or empty:", certAbsolutePath);
 }
 
+app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
 app.use(
   helmet({
     contentSecurityPolicy: false,
     frameguard: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+    originAgentCluster: false,
   }),
 );
 
@@ -77,11 +72,11 @@ if (process.env.REDIS_URL) {
   });
 
   redisClient.on("error", (error) => {
-    console.error("Redis session store error:", error);
+    console.error("Redis session store error:", error.message || error);
   });
 
   redisClient.connect().catch((error) => {
-    console.error("Redis connection failed:", error);
+    console.error("Redis connection failed:", error.message || error);
   });
 
   sessionStore = new RedisStore({
@@ -89,9 +84,7 @@ if (process.env.REDIS_URL) {
     prefix: "feedback-md-session:",
   });
 } else {
-  console.warn(
-    "REDIS_URL is not set. Using temporary MemoryStore for testing only.",
-  );
+  console.warn("REDIS_URL is not set. Using temporary MemoryStore for testing only.");
 }
 
 app.use(
@@ -106,6 +99,7 @@ app.use(
       httpOnly: true,
       sameSite: "none",
       secure: true,
+      partitioned: true,
       maxAge: 1000 * 60 * 60 * 8,
     },
   }),
@@ -114,17 +108,27 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((user, done) => done(null, user));
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
 
 function firstValue(value) {
-  if (Array.isArray(value)) return value[0] || "";
+  if (Array.isArray(value)) {
+    return value[0] || "";
+  }
+
   return value || "";
 }
 
 function getAttribute(profile, possibleNames) {
   for (const name of possibleNames) {
-    if (profile && profile[name]) return firstValue(profile[name]);
+    if (profile && profile[name]) {
+      return firstValue(profile[name]);
+    }
 
     if (profile && profile.attributes && profile.attributes[name]) {
       return firstValue(profile.attributes[name]);
@@ -133,16 +137,28 @@ function getAttribute(profile, possibleNames) {
 
   return "";
 }
+
 function mapSamlProfile(profile) {
-  const email = getAttribute(profile, ["email"]) || profile.nameID || "";
+  const email =
+    getAttribute(profile, ["email"]) ||
+    profile.nameID ||
+    "";
 
-  const name = getAttribute(profile, ["display_name"]) || "";
+  const name =
+    getAttribute(profile, ["display_name"]) ||
+    "";
 
-  const office = getAttribute(profile, ["department_name"]) || "";
+  const office =
+    getAttribute(profile, ["department_name"]) ||
+    "";
 
-  const employeeId = getAttribute(profile, ["employee_id"]) || "";
+  const employeeId =
+    getAttribute(profile, ["employee_id"]) ||
+    "";
 
-  const jobTitle = getAttribute(profile, ["job_title"]) || "";
+  const jobTitle =
+    getAttribute(profile, ["job_title"]) ||
+    "";
 
   return {
     email,
@@ -161,32 +177,33 @@ const samlStrategy = new SamlStrategy(
     entryPoint: BLINK_LOGIN_URL,
     issuer: `${APP_BASE_URL}/saml/metadata`,
     callbackUrl: `${APP_BASE_URL}/sso/acs`,
-
     idpCert: blinkCertificate,
 
     identifierFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
     acceptedClockSkewMs: 5000,
     disableRequestedAuthnContext: true,
-
-    // Important for Blink Hub SSO / IdP-initiated SSO
     validateInResponseTo: "never",
 
-    // Start flexible for testing.
-    // After it works, we can tighten security based on Blink’s signing method.
     wantAssertionsSigned: false,
     wantAuthnResponseSigned: false,
   },
   (profile, done) => {
     const user = mapSamlProfile(profile);
-    logJson("samlStrategy user RESPONSE JSON", user);
     return done(null, user);
   },
 );
 
 passport.use("saml", samlStrategy);
 
+function getCurrentUser(req) {
+  return req.user || (req.session && req.session.user) || null;
+}
+
 function requireLogin(req, res, next) {
-  if (req.isAuthenticated && req.isAuthenticated()) {
+  const user = getCurrentUser(req);
+
+  if (user) {
+    req.user = user;
     return next();
   }
 
@@ -229,10 +246,9 @@ app.get("/debug-config", (req, res) => {
 app.get("/saml/metadata", (req, res) => {
   try {
     const metadata = samlStrategy.generateServiceProviderMetadata(null, null);
-    logJson("metadata RESPONSE JSON", metadata);
-    res.type("application/xml").send(metadata);
+    return res.type("application/xml").send(metadata);
   } catch (error) {
-    res
+    return res
       .status(500)
       .type("text/plain")
       .send(`Could not generate metadata: ${error.message}`);
@@ -240,18 +256,22 @@ app.get("/saml/metadata", (req, res) => {
 });
 
 app.get("/login", (req, res, next) => {
+  const user = getCurrentUser(req);
+
+  if (user) {
+    return res.redirect("/");
+  }
+
   if (!BLINK_LOGIN_URL) {
     return res
       .status(500)
-      .send("Missing BLINK_LOGIN_URL in Render environment variables.");
+      .send("Missing BLINK_LOGIN_URL in environment variables.");
   }
 
   if (!blinkCertificate) {
     return res
       .status(500)
-      .send(
-        "Missing Blink certificate. Check BLINK_CERT_PATH and config/blink-idp-cert.pem.",
-      );
+      .send("Missing Blink certificate. Check BLINK_CERT_PATH and config/blink-idp-cert.pem.");
   }
 
   return passport.authenticate("saml", {
@@ -292,13 +312,16 @@ app.post("/sso/acs", (req, res, next) => {
         `);
       }
 
+      req.session.user = user;
+      req.session.ssoDone = true;
+
       req.session.save((saveError) => {
         if (saveError) {
           console.error("SESSION SAVE ERROR:", saveError);
           return res.status(500).send("Session save error after SAML login.");
         }
 
-        return res.redirect("/");
+        return res.redirect(303, "/");
       });
     });
   })(req, res, next);
@@ -309,29 +332,29 @@ app.get("/login-failed", (req, res) => {
 });
 
 app.get("/api/me", requireLogin, (req, res) => {
-  const responseJson = {
+  const user = getCurrentUser(req) || {};
+
+  res.json({
     authenticated: true,
     user: {
-      name: req.user.name || "",
-      office: req.user.office || "",
-      email: req.user.email || "",
-      employeeId: req.user.employeeId || "",
-      jobTitle: req.user.jobTitle || "",
+      name: user.name || "",
+      office: user.office || "",
+      email: user.email || "",
+      employeeId: user.employeeId || "",
+      jobTitle: user.jobTitle || "",
     },
     missing: {
-      name: !req.user.name,
-      office: !req.user.office,
-      email: !req.user.email,
-      employeeId: !req.user.employeeId,
-      jobTitle: !req.user.jobTitle,
+      name: !user.name,
+      office: !user.office,
+      email: !user.email,
+      employeeId: !user.employeeId,
+      jobTitle: !user.jobTitle,
     },
-  };
-
-  res.json(responseJson);
+  });
 });
 
 app.post("/api/feedback", requireLogin, async (req, res) => {
-  const user = req.user || {};
+  const user = getCurrentUser(req) || {};
   const feedback = String(req.body.feedback || "").trim();
 
   if (!feedback) {
@@ -351,7 +374,6 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
     office: user.office || "",
     email: user.email || "",
     employeeId: user.employeeId || "",
-    department: user.department || "",
     jobTitle: user.jobTitle || "",
     feedback,
   };
@@ -366,6 +388,7 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
   );
 
   const subject = "New Staff Feedback Submitted - Feedback MD";
+
   const body = [
     "A new staff feedback response has been submitted.",
     "",
@@ -373,7 +396,6 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
     `Office: ${submission.office || "Not provided by Blink"}`,
     `Email: ${submission.email || "Not provided by Blink"}`,
     `Employee ID: ${submission.employeeId || "Not provided by Blink"}`,
-    `Department: ${submission.department || "Not provided by Blink"}`,
     `Job Title: ${submission.jobTitle || "Not provided by Blink"}`,
     "",
     "Feedback:",
@@ -381,6 +403,7 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
     "",
     `Submitted Date/Time: ${submittedAt}`,
   ].join("\n");
+
   try {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -420,14 +443,27 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
 
 app.get("/logout", (req, res, next) => {
   req.logout((error) => {
-    if (error) return next(error);
+    if (error) {
+      return next(error);
+    }
 
     req.session.destroy(() => {
-      res.redirect("/login");
+      res.clearCookie("feedback_md_sid", {
+        httpOnly: true,
+        sameSite: "none",
+        secure: true,
+        partitioned: true,
+      });
+
+      return res.redirect("/login");
     });
   });
 });
 
 app.get("*", requireLogin, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.listen(PORT, "127.0.0.1", () => {
+  console.log(`Feedback app running on http://127.0.0.1:${PORT}`);
 });
