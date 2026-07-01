@@ -6,9 +6,11 @@ const submitButton = document.getElementById('submitButton');
 const buttonText = document.getElementById('buttonText');
 const buttonLoader = document.getElementById('buttonLoader');
 
-const staffName = document.getElementById('staffName');
-const staffOffice = document.getElementById('staffOffice');
-const staffEmail = document.getElementById('staffEmail');
+const displayInfo = document.getElementById('displayInfo');
+const staffNameHidden = document.getElementById('staffNameHidden');
+const staffOfficeHidden = document.getElementById('staffOfficeHidden');
+const staffEmailHidden = document.getElementById('staffEmailHidden');
+const greeting = document.getElementById('greeting');
 
 const LOGIN_ATTEMPT_KEY = 'feedback_md_login_attempted';
 
@@ -29,9 +31,10 @@ function setLoading(isLoading) {
   buttonLoader.classList.toggle('hidden', !isLoading);
 }
 
-function setUserField(input, value, fallback) {
-  if (!input) return;
-  input.value = value && String(value).trim() ? String(value).trim() : fallback;
+function setDisplayField(displayEl, hiddenEl, value, fallback) {
+  const text = value && String(value).trim() ? String(value).trim() : fallback;
+  if (displayEl) displayEl.textContent = text;
+  if (hiddenEl) hiddenEl.value = value && String(value).trim() ? String(value).trim() : '';
 }
 
 function normaliseBlinkUser(data) {
@@ -73,9 +76,10 @@ function goToLoginOnce() {
   const alreadyTried = sessionStorage.getItem(LOGIN_ATTEMPT_KEY);
 
   if (alreadyTried === 'yes') {
-    setUserField(staffName, '', 'Login session not found');
-    setUserField(staffOffice, '', 'Login session not found');
-    setUserField(staffEmail, '', 'Login session not found');
+    if (displayInfo) displayInfo.textContent = 'Login session not found';
+    if (staffNameHidden) staffNameHidden.value = '';
+    if (staffOfficeHidden) staffOfficeHidden.value = '';
+    if (staffEmailHidden) staffEmailHidden.value = '';
 
     showStatus(
       'warning',
@@ -118,9 +122,22 @@ async function loadUser() {
 
     const user = normaliseBlinkUser(data);
 
-    setUserField(staffName, user.name, 'Not provided by Blink SSO');
-    setUserField(staffOffice, user.office, 'Not provided by Blink SSO');
-    setUserField(staffEmail, user.email, 'Not provided by Blink SSO');
+    // compose a single sentence with name, department and email
+    const infoParts = [];
+    if (user.name) infoParts.push(user.name);
+    if (user.office) infoParts.push(`from ${user.office}`);
+    if (user.email) infoParts.push(`(${user.email})`);
+    const infoSentence = infoParts.length ? infoParts.join(' ') : 'Not provided';
+
+    if (displayInfo) displayInfo.textContent = infoSentence;
+    if (staffNameHidden) staffNameHidden.value = user.name || '';
+    if (staffOfficeHidden) staffOfficeHidden.value = user.office || '';
+    if (staffEmailHidden) staffEmailHidden.value = user.email || '';
+
+    // show greeting using the staff name (from hidden field)
+    if (greeting) {
+      greeting.textContent = `Hi ${user.name || ''}`.trim();
+    }
 
     sessionStorage.removeItem(LOGIN_ATTEMPT_KEY);
 
@@ -136,9 +153,10 @@ async function loadUser() {
   } catch (error) {
     console.error(error);
 
-    setUserField(staffName, '', 'Could not load');
-    setUserField(staffOffice, '', 'Could not load');
-    setUserField(staffEmail, '', 'Could not load');
+    if (displayInfo) displayInfo.textContent = 'Could not load';
+    if (staffNameHidden) staffNameHidden.value = '';
+    if (staffOfficeHidden) staffOfficeHidden.value = '';
+    if (staffEmailHidden) staffEmailHidden.value = '';
 
     showStatus('error', 'Could not load staff details. Please refresh the page or contact admin.');
   }
@@ -171,7 +189,7 @@ form.addEventListener('submit', async (event) => {
         'Content-Type': 'application/json',
         Accept: 'application/json'
       },
-      body: JSON.stringify({ feedback })
+      body: JSON.stringify({ feedback, name: staffNameHidden ? staffNameHidden.value.trim() : (displayInfo ? displayInfo.textContent : '') })
     });
 
     if (response.status === 401) {
@@ -187,11 +205,30 @@ form.addEventListener('submit', async (event) => {
       return;
     }
 
+    // clear the feedback field
     feedbackInput.value = '';
     charCount.textContent = '0';
     sessionStorage.removeItem(LOGIN_ATTEMPT_KEY);
 
-    showStatus('success', data.message || 'Thank you. Your feedback has been submitted successfully.');
+    // show a friendly themed thank-you message using the staff name
+    const formBox = document.querySelector('.form-box');
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    const name = staffNameHidden && staffNameHidden.value ? staffNameHidden.value : (displayInfo ? displayInfo.textContent : '');
+
+    formBox.innerHTML = `
+      <h1>Feedback</h1>
+      <p class="intro">Please share your feedback. Just type your feedback and submit.</p>
+      <div id="statusMessage" class="status success">${escapeHtml(data.message || 'Thank you. Your feedback has been submitted successfully.')}</div>
+      <section style="padding:18px;text-align:center;">
+        <h2 style="color:#02519b;margin-top:8px;">Hi ${escapeHtml(name) || 'there'},</h2>
+        <p style="color:#667085;">Thanks for your feedback.</p>
+        <p style="margin-top:18px;"><a href="/" style="display:inline-block;padding:10px 16px;border-radius:6px;background:#f36421;color:#fff;text-decoration:none;font-weight:700;">Submit another response</a></p>
+      </section>
+    `;
   } catch (error) {
     console.error(error);
     showStatus('error', 'Could not submit feedback. Please check your connection and try again.');

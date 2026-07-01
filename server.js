@@ -1,7 +1,7 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
 const fs = require("fs");
-const path = require("path");
 const express = require("express");
 const session = require("express-session");
 const helmet = require("helmet");
@@ -368,9 +368,11 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
     timeZone: "Australia/Sydney",
   });
 
+  const postedName = String(req.body && req.body.name ? req.body.name : '').trim();
+
   const submission = {
     submittedAt,
-    name: user.name || "",
+    name: postedName || user.name || "",
     office: user.office || "",
     email: user.email || "",
     employeeId: user.employeeId || "",
@@ -404,31 +406,177 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
     `Submitted Date/Time: ${submittedAt}`,
   ].join("\n");
 
+  // Basic HTML escaping to avoid injection in emails
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  const logoUrl = process.env.LOGO_URL || 'https://multidynamic.com.au/assets/images/logo/logo.png';
+
+  const htmlAdmin = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;color:#1f2933;background:#f5f8fd;padding:24px;">
+  <div style="max-width:680px;margin:0 auto;border:1px solid #e3e8ee;border-radius:8px;background:#fff;overflow:hidden;">
+    <div style="background:#02519b;padding:18px;color:#fff;display:flex;align-items:center;gap:12px;">
+      <img src="${escapeHtml(logoUrl)}" alt="Multi Dynamic" style="height:40px;"> 
+      <h2 style="margin:0;font-size:18px;">New Staff Feedback Submitted</h2>
+    </div>
+    <div style="padding:18px;">
+      <p>A new staff feedback response has been submitted. Details below:</p>
+      <ul>
+        <li><strong>Name:</strong> ${escapeHtml(submission.name || 'Not provided')}</li>
+        <li><strong>Office:</strong> ${escapeHtml(submission.office || 'Not provided')}</li>
+        <li><strong>Email:</strong> ${escapeHtml(submission.email || 'Not provided')}</li>
+        <li><strong>Employee ID:</strong> ${escapeHtml(submission.employeeId || 'Not provided')}</li>
+        <li><strong>Job Title:</strong> ${escapeHtml(submission.jobTitle || 'Not provided')}</li>
+        <li><strong>Submitted:</strong> ${escapeHtml(submittedAt)}</li>
+      </ul>
+      <h3 style="color:#02519b;">Feedback</h3>
+      <pre style="white-space:pre-wrap;background:#f5f8fd;padding:12px;border-radius:6px;border:1px solid #e9eef6;">${escapeHtml(submission.feedback)}</pre>
+    </div>
+  </div>
+</body></html>`;
+
+  const htmlUser = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;color:#1f2933;background:#f5f8fd;padding:24px;">
+    <div style="max-width:680px;margin:0 auto;border:1px solid #e3e8ee;border-radius:8px;background:#fff;overflow:hidden;">
+      <div style="background:#02519b;padding:18px;color:#fff;display:flex;align-items:center;gap:12px;">
+        <img src="${escapeHtml(logoUrl)}" alt="Multi Dynamic" style="height:40px;">
+        <h2 style="margin:0;font-size:18px;">Thanks for your feedback</h2>
+      </div>
+      <div style="padding:18px;">
+        <p>Hi ${escapeHtml(submission.name || 'there')},</p>
+        <p>Thank you for sharing your feedback with Multi Dynamic. We've received your message and will review it.</p>
+        <h3 style="color:#02519b;">Your submitted feedback</h3>
+        <pre style="white-space:pre-wrap;background:#f5f8fd;padding:12px;border-radius:6px;border:1px solid #e9eef6;">${escapeHtml(submission.feedback)}</pre>
+        <p style="color:#667085;font-size:13px;">If you'd like to follow up, please reply to this email or contact your manager.</p>
+      </div>
+    </div>
+  </body></html>`;
+
   try {
+    // prefer explicit SMTP_* vars, fall back to MAIL_* vars commonly used in .env
+    const mailHost = process.env.SMTP_HOST || process.env.MAIL_HOST || process.env.MAILER_HOST || '';
+    const mailPort = Number(process.env.SMTP_PORT || process.env.MAIL_PORT || process.env.MAILER_PORT || 587);
+    const mailUser = process.env.SMTP_USER || process.env.MAIL_USERNAME || process.env.MAIL_USER || undefined;
+    const mailPass = process.env.SMTP_PASS || process.env.MAIL_PASSWORD || process.env.MAIL_PASS || undefined;
+
+    // decide whether to use secure connection (SSL). Prefer explicit SMTP_SECURE; otherwise treat MAIL_ENCRYPTION === 'ssl' as secure.
+    let secure = false;
+    if (typeof process.env.SMTP_SECURE !== 'undefined') {
+      secure = String(process.env.SMTP_SECURE).toLowerCase() === 'true';
+    } else if (process.env.MAIL_ENCRYPTION) {
+      secure = String(process.env.MAIL_ENCRYPTION).toLowerCase() === 'ssl';
+    }
+
+    if (!mailHost) {
+      throw new Error('SMTP host is not configured. Set SMTP_HOST or MAIL_HOST in .env.');
+    }
+
+    console.log('Using SMTP settings:', {
+      host: mailHost,
+      port: mailPort,
+      user: Boolean(mailUser),
+      secure,
+      useTls: String(process.env.MAIL_ENCRYPTION || '').toLowerCase() === 'tls',
+    });
+
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: String(process.env.SMTP_SECURE).toLowerCase() === "true",
-      auth:
-        process.env.SMTP_USER && process.env.SMTP_PASS
-          ? {
-              user: process.env.SMTP_USER,
-              pass: process.env.SMTP_PASS,
-            }
+      host: mailHost,
+      port: mailPort,
+      secure,
+      auth: mailUser && mailPass ? { user: mailUser, pass: mailPass } : undefined,
+      tls:
+        String(process.env.MAIL_ENCRYPTION || '').toLowerCase() === 'tls'
+          ? { rejectUnauthorized: false }
           : undefined,
     });
 
-    await transporter.sendMail({
-      from: process.env.MAIL_FROM || "Feedback MD <admin@multidynamic.com.au>",
+    // verify SMTP connection before sending
+    try {
+      await transporter.verify();
+      console.log('SMTP connection verified');
+    } catch (verifyErr) {
+      console.error('SMTP verify failed:', verifyErr && verifyErr.message ? verifyErr.message : verifyErr);
+      throw new Error(`SMTP verify failed: ${verifyErr && verifyErr.message ? verifyErr.message : String(verifyErr)}`);
+    }
+
+    // send admin notification (HTML + fallback text)
+    let adminResult;
+    const adminMailOptions = {
+      from: process.env.MAIL_FROM || "Feedback MD <noreply@multidynamic.com.au>",
       to: process.env.MAIL_TO || "admin@multidynamic.com.au",
-      replyTo: submission.email || undefined,
       subject,
       text: body,
-    });
+      html: htmlAdmin,
+    };
 
+    try {
+      adminResult = await transporter.sendMail(adminMailOptions);
+      console.log('Admin email sent', {
+        from: adminMailOptions.from,
+        to: adminMailOptions.to,
+        subject: adminMailOptions.subject,
+        accepted: adminResult.accepted,
+        rejected: adminResult.rejected,
+        htmlAdmin: adminMailOptions.html,
+      });
+    } catch (adminErr) {
+      console.error('Admin email failed', {
+        mailOptions: adminMailOptions,
+        error: adminErr && (adminErr.message || adminErr),
+      });
+      // Admin notification is critical — return 500 so operator can fix SMTP/settings
+      return res.status(500).json({
+        ok: false,
+        message: 'Feedback saved but admin notification failed. Check SMTP settings.',
+        error: String(adminErr && (adminErr.message || adminErr)),
+      });
+    }
+
+    // send thank-you email to submitter (if an email is available)
+    let userEmailSent = false;
+    let userEmailError = null;
+
+    if (submission.email) {
+      const userMailOptions = {
+        from: process.env.MAIL_FROM || "Feedback MD <noreply@multidynamic.com.au>",
+        to: submission.email,
+        subject: 'Thanks for your feedback - Multi Dynamic',
+        text: `Hi ${submission.name || ''}\n\nThank you for your feedback.\n\nSubmitted:\n${submission.feedback}\n\nRegards,\nMulti Dynamic`,
+        html: htmlUser,
+      };
+
+      try {
+        const userResult = await transporter.sendMail(userMailOptions);
+        userEmailSent = true;
+        console.log('User email sent', {
+          from: userMailOptions.from,
+          to: userMailOptions.to,
+          subject: userMailOptions.subject,
+          accepted: userResult.accepted,
+          rejected: userResult.rejected,
+          htmlUser: userMailOptions.html,
+        });
+      } catch (userErr) {
+        userEmailSent = false;
+        userEmailError = String(userErr && (userErr.message || userErr));
+        console.error('User email failed', {
+          mailOptions: userMailOptions,
+          error: userEmailError,
+        });
+        // Do not throw — user email failure should not prevent a successful submission
+      }
+    }
+
+    // Return successful submission response; include whether user email was sent
     return res.json({
       ok: true,
-      message: "Thank you. Your feedback has been submitted successfully.",
+      message: 'Thank you. Your feedback has been submitted successfully.',
+      userEmailSent,
+      userEmailError,
     });
   } catch (error) {
     console.error("Email sending failed:", error);

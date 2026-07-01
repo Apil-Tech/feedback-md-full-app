@@ -170,6 +170,20 @@
       cursor: default;
     }
 
+    .readonly-display {
+      width: 100%;
+      border: 1px solid #ccd5df;
+      border-radius: 6px;
+      padding: 12px 13px;
+      font: inherit;
+      color: #1f2933;
+      background: #f5f8fd;
+      outline: none;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+    }
+
     input[readonly]:focus {
       border-color: #ccd5df;
       box-shadow: none;
@@ -284,46 +298,19 @@
       <section class="form-box">
         <h1>Feedback</h1>
 
+        <p id="greeting" class="intro" style="margin-bottom:8px;font-weight:700;">Hi</p>
+
         <p class="intro">
-          Please share your feedback below. Your name, office, and email are captured automatically from Blink SSO.
+          Please share your feedback.
         </p>
 
         <div id="statusMessage" class="status hidden"></div>
 
         <form id="feedbackForm">
-          <div class="field-grid">
-            <div class="field">
-              <label for="staffName">Name</label>
-              <input
-                id="staffName"
-                name="staffName"
-                type="text"
-                readonly
-                value="Loading from Blink SSO..."
-              >
-            </div>
-
-            <div class="field">
-              <label for="staffOffice">Department</label>
-              <input
-                id="staffOffice"
-                name="staffOffice"
-                type="text"
-                readonly
-                value="Loading from Blink SSO..."
-              >
-            </div>
-          </div>
-
           <div class="field">
-            <label for="staffEmail">Email</label>
-            <input
-              id="staffEmail"
-              name="staffEmail"
-              type="email"
-              readonly
-              value="Loading from Blink SSO..."
-            >
+            <input id="staffNameHidden" name="staffName" type="hidden">
+            <input id="staffOfficeHidden" name="staffOffice" type="hidden">
+            <input id="staffEmailHidden" name="staffEmail" type="hidden">
           </div>
 
           <input id="staffEmployeeId" name="staffEmployeeId" type="hidden">
