@@ -456,6 +456,7 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
 
   try {
     // prefer explicit SMTP_* vars, fall back to MAIL_* vars commonly used in .env
+    const mailDriver = String(process.env.MAIL_DRIVER || process.env.MAILER_DRIVER || 'smtp').toLowerCase();
     const mailHost = process.env.SMTP_HOST || process.env.MAIL_HOST || process.env.MAILER_HOST || '';
     const mailPort = Number(process.env.SMTP_PORT || process.env.MAIL_PORT || process.env.MAILER_PORT || 587);
     const mailUser = process.env.SMTP_USER || process.env.MAIL_USERNAME || process.env.MAIL_USER || undefined;
@@ -485,7 +486,7 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
       console.warn('WARNING: Mailtrap SMTP is configured. This captures email in Mailtrap and does not deliver to real inboxes.');
     }
 
-    const transporter = nodemailer.createTransport({
+    const transportOptions = {
       host: mailHost,
       port: mailPort,
       secure,
@@ -494,7 +495,13 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
         String(process.env.MAIL_ENCRYPTION || '').toLowerCase() === 'tls'
           ? { rejectUnauthorized: false }
           : undefined,
-    });
+    };
+
+    if (mailDriver !== 'smtp') {
+      console.warn(`MAIL_DRIVER=${mailDriver} is set, but only SMTP is currently supported. Falling back to SMTP transport.`);
+    }
+
+    const transporter = nodemailer.createTransport(transportOptions);
 
     // verify SMTP connection before sending
     try {
@@ -510,6 +517,7 @@ app.post("/api/feedback", requireLogin, async (req, res) => {
     const adminMailOptions = {
       from: process.env.MAIL_FROM || "Feedback MD <noreply@multidynamic.com.au>",
       to: process.env.MAIL_TO || "admin@multidynamic.com.au",
+      replyTo: submission.email || undefined,
       subject,
       text: body,
       html: htmlAdmin,
